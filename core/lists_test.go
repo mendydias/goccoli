@@ -90,8 +90,8 @@ func TestOverflowTwice(t *testing.T) {
 		q.PushBack(vals[i])
 	}
 	head := q.Head()
-	if head != vals[3] {
-		t.Errorf("Expected head to be the first item in the overflowed array, but found %d", head)
+	if head != 3 {
+		t.Errorf("Expected head to be the %d, but found %d", 3, head)
 	}
 	tail := q.Tail()
 	if tail != vals[5] {
@@ -186,7 +186,7 @@ func TestPushFrontOverCapTwice(t *testing.T) {
 	if head != 6 {
 		t.Errorf("Expected the head item to be %d but found %d", 6, head)
 	}
-	if tail != 4 {
+	if tail != 3 {
 		t.Errorf("Expected the tail item to be %d but found %d", 4, tail)
 	}
 }

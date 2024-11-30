@@ -34,7 +34,108 @@ var logger zerolog.Logger = zerolog.New(zerolog.ConsoleWriter{Out: os.Stderr}).W
 // A sufficiently large enough minimum capacity to prevent the data structure from having to overwrite too many elements at a time.
 const minCap = 1024
 
+// Private helper functions
+func initDeque(q *Deque, capacity int) *Deque {
+	if q == nil {
+		logger.Debug().Msg("Deque is a nil instance. Allocating memory and creating an instance.")
+
+		q = new(Deque)
+	}
+
+	if capacity == 0 {
+		logger.Debug().Msg("Deque has an empty buffer. Creating min capacity buffer and initializing internal pointers for head and tail.")
+		capacity = minCap
+	}
+	q.buf = make([]int, capacity)
+	q.head = 0
+	q.count = 0
+	q.tail = 0
+	q.capacity = capacity
+
+	return q
+}
+
+// Calculates the next index pointer
+func (q *Deque) next() int {
+	index := 0
+
+	if q.count != 0 {
+		index = (q.tail + 1) & (len(q.buf) - 1)
+	}
+
+	logger.Debug().Int("index", index).Msg("Returning next index")
+	return index
+}
+
+// Calculates the previous index pointer
+func (q *Deque) prev() int {
+	index := 0
+
+	if q.count != 0 {
+		index = (q.head - 1) & (len(q.buf) - 1)
+	}
+
+	logger.Debug().Int("index", index).Msg("Returning previous index")
+	return index
+}
+
+// Updates the element count
+func (q *Deque) updateCount() {
+	logger.Debug().Msg("Updating count")
+
+	if q.count < len(q.buf) {
+		logger.Debug().Msg("Incrementing count")
+		q.count++
+		return
+	}
+
+	logger.Debug().Msg("Item count is at capacity. Upper bounded to buffer capacity.")
+}
+
+// The following functions maintain the invariant: tail - head gives the total count of elements, while maintaining wrap around properties
+func (q *Deque) incrementPointersRight(newIndex int) {
+	logger.Debug().Int("new index", newIndex).Msg("Updating pointers to the right. Tail grows.")
+
+	if q.count > 1 {
+		q.tail = newIndex
+		if q.tail > q.head {
+			q.head = 0
+		} else {
+			q.head = q.next()
+		}
+	}
+
+	logger.Debug().Int("head", q.head).Int("tail", q.tail).Int("count", q.count).Msg("New pointers after update right.")
+}
+
+func (q *Deque) incrementPointersLeft(newIndex int) {
+	logger.Debug().Int("new index", newIndex).Msg("Updating pointers to the left. Head grows.")
+
+	if q.count > 1 {
+		q.head = newIndex
+		if q.head > q.tail {
+			q.tail = 0
+		} else {
+			q.tail = q.prev()
+		}
+	}
+
+	logger.Debug().Int("head", q.head).Int("tail", q.tail).Int("count", q.count).Msg("New pointers after update left.")
+}
+
 func WithCapacity(capacity int) *Deque {
+	// Check if capacity is not a power of two and get the upper bound closest power of two capacity
+	logger.Debug().Int("capacity", capacity).Msg("Checking if given capacity is a power of 2")
+	if capacity&(capacity-1) != 0 {
+		capacity |= capacity >> 1
+		capacity |= capacity >> 2
+		capacity |= capacity >> 4
+		capacity |= capacity >> 8
+		capacity |= capacity >> 16
+		capacity++
+		logger.Debug().Int("new capacity", capacity).Msg("Capacity is not a power of two. Getting the next biggest power of two.")
+	}
+
 	logger.Debug().Msgf("Creating a deque with capacity %d", capacity)
 	return initDeque(nil, capacity)
 }
@@ -72,10 +173,10 @@ func (q *Deque) PushBack(data int) {
 	}
 
 	logger.Debug().Str("buffer", fmt.Sprintf("%v", q.buf)).Msg("Pre-push buffer state")
-	index := q.getindex(1)
+	index := q.next()
 	q.buf[index] = data
 	q.updateCount()
-	q.updatePointers(index, 1)
+	q.incrementPointersRight(index)
 
 	logger.Debug().
 		Str("buffer", fmt.Sprintf("%v", q.buf)).
@@ -94,10 +195,10 @@ func (q *Deque) PushFront(data int) {
 	}
 
 	logger.Debug().Str("buffer", fmt.Sprintf("%v", q.buf)).Msg("Pre-push buffer state")
-	index := q.getindex(-1)
+	index := q.prev()
 	q.buf[index] = data
 	q.updateCount()
-	q.updatePointers(index, -1)
+	q.incrementPointersLeft(index)
 
 	logger.Debug().
 		Str("buffer", fmt.Sprintf("%v", q.buf)).
@@ -123,91 +224,4 @@ func (q *Deque) Contains(key int) bool {
 	logger.Debug().Msgf("Looking for %d in %v", key, q.buf)
 
 	return slices.Contains(q.buf, key)
-}
-
-func initDeque(q *Deque, capacity int) *Deque {
-	if q == nil {
-		logger.Debug().Msg("Deque is a nil instance. Allocating memory and creating an instance.")
-
-		q = new(Deque)
-	}
-
-	if capacity == 0 {
-		logger.Debug().Msg("Deque has an empty buffer. Creating min capacity buffer and initializing internal pointers for head and tail.")
-		capacity = minCap
-	}
-	q.buf = make([]int, capacity)
-	q.head = 0
-	q.count = 0
-	q.tail = 0
-
-	return q
-}
-
-func (q *Deque) getindex(offset int) int {
-	index := 0
-
-	logger.Debug().Int("count", q.count).Msg("Index depends on the item count")
-	if q.count == 0 {
-		index = 0
-	} else {
-		capacity := len(q.buf)
-		if offset > 0 {
-			index = (((q.tail + offset) % capacity) + capacity) % capacity
-		} else {
-			index = (((q.head + offset) % capacity) + capacity) % capacity
-		}
-	}
-
-	logger.Debug().Int("index", index).Msg("Returning next index to push back")
-	return index
-}
-
-func (q *Deque) updateCount() {
-	logger.Debug().Msg("Updating count")
-
-	if q.count+1 >= len(q.buf) {
-		logger.Debug().Msg("Item count is at capacity. Upper bounded to bufer capacity.")
-
-		q.count = len(q.buf)
-	} else {
-		logger.Debug().Msg("Incrementing count")
-
-		q.count++
-	}
-}
-
-// Maintains the invariant: tail - head gives the total count of elements, while maintaining wrap around properties..
-func (q *Deque) updatePointers(newIndex int, direction int) {
-	logger.Debug().Msg("Updating head and tail pointers")
-
-	if q.count == 1 {
-		logger.Debug().Int("head", q.head).Int("tail", q.tail).Msg("Nothing to update, only one element inserted.")
-		return
-	}
-
-	if direction > 0 {
-		q.tail = newIndex
-		logger.Debug().Int("new index", newIndex).Msg("Updating pointers to grow with the tail")
-
-		if q.tail > q.head {
-			q.head = 0
-			logger.Debug().Int("head", q.head).Int("tail", q.tail).Msg("Tail pointer is ahead of head pointer, head is at the start")
-		} else {
-			q.head = (q.tail + 1) % len(q.buf)
-			logger.Debug().Int("head", q.head).Int("tail", q.tail).Msg("Tail pointer is behind of head pointer, head is one greater than tail")
-		}
-	} else {
-		q.head = newIndex
-		logger.Debug().Int("new index", newIndex).Msg("Updating pointers to grow with the head")
-
-		if q.head == q.tail {
-			capacity := len(q.buf)
-			q.tail = (((q.head - 1) % capacity) + capacity) % capacity
-			logger.Debug().Int("tail", q.tail).Msg("Head and Tail clash. Recalculating ")
-		} else {
-			logger.Debug().Msg("Nothing to update with the tail.")
-			q.tail = 0
-		}
-	}
 }
