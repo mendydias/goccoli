@@ -57,11 +57,11 @@ func initDeque(q *Deque, capacity int) *Deque {
 }
 
 // Calculates the next index pointer
-func (q *Deque) next() int {
-	index := 0
+func (q *Deque) next(reference int) int {
+	index := reference
 
 	if q.count != 0 {
-		index = (q.tail + 1) & (len(q.buf) - 1)
+		index = (reference + 1) & (len(q.buf) - 1)
 	}
 
 	logger.Debug().Int("index", index).Msg("Returning next index")
@@ -70,7 +70,7 @@ func (q *Deque) next() int {
 
 // Calculates the previous index pointer
 func (q *Deque) prev(reference int) int {
-	index := 0
+	index := reference
 
 	if q.count != 0 {
 		index = (reference - 1) & (len(q.buf) - 1)
@@ -93,16 +93,14 @@ func (q *Deque) updateCount() {
 	logger.Debug().Msg("Item count is at capacity. Upper bounded to buffer capacity.")
 }
 
-// The following functions maintain the invariant: tail - head gives the total count of elements, while maintaining wrap around properties
+// The following functions help maintain the invariant that head will never be tail unless the deque is empty.
 func (q *Deque) incrementPointersRight(newIndex int) {
 	logger.Debug().Int("new index", newIndex).Msg("Updating pointers to the right. Tail grows.")
 
 	if q.count > 1 {
 		q.tail = newIndex
-		if q.tail > q.head {
-			q.head = 0
-		} else {
-			q.head = q.next()
+		if q.tail == q.head {
+			q.head = q.next(q.tail)
 		}
 	}
 
@@ -114,9 +112,7 @@ func (q *Deque) incrementPointersLeft(newIndex int) {
 
 	if q.count > 1 {
 		q.head = newIndex
-		if q.head > q.tail {
-			q.tail = 0
-		} else {
+		if q.head == q.tail {
 			q.tail = q.prev(q.head)
 		}
 	}
@@ -174,7 +170,7 @@ func (q *Deque) PushBack(data int) {
 	}
 
 	logger.Debug().Str("buffer", fmt.Sprintf("%v", q.buf)).Msg("Pre-push buffer state")
-	index := q.next()
+	index := q.next(q.tail)
 	q.buf[index] = data
 	q.updateCount()
 	q.incrementPointersRight(index)
@@ -198,6 +194,7 @@ func (q *Deque) PopBack() (int, error) {
 
 	if q.count != 0 {
 		tail := q.Tail()
+		q.buf[q.tail] = 0
 		if q.count == 1 {
 			logger.Debug().Msg("case: item count is 1")
 			q.tail = 0
@@ -216,6 +213,11 @@ func (q *Deque) PopBack() (int, error) {
 			Int("tail", q.tail).
 			Str("buffer", fmt.Sprintf("%v", q.buf)).
 			Msg("Item count is greater than 0. Post pop state.")
+
+		if q.count == 0 {
+			q.tail = 0
+			q.head = 0
+		}
 
 		return tail, nil
 	} else {
@@ -263,9 +265,31 @@ func (q *Deque) PopFront() (int, error) {
 
 	if q.count != 0 {
 		head := q.Head()
-		q.head = q.prev(q.head)
+		q.buf[q.head] = 0
+		q.head = q.next(q.head)
+		q.count--
+
+		logger.Debug().
+			Int("count", q.count).
+			Int("head", q.head).
+			Int("tail", q.tail).
+			Str("buffer", fmt.Sprintf("%v", q.buf)).
+			Msg("Item count is greater than 0. Post pop state.")
+
+		if q.count == 0 {
+			q.tail = 0
+			q.head = 0
+		}
+
 		return head, nil
 	} else {
+		logger.Debug().
+			Int("count", q.count).
+			Int("head", q.head).
+			Int("tail", q.tail).
+			Str("buffer", fmt.Sprintf("%v", q.buf)).
+			Msg("Item count is greater than 0. Post pop state.")
+
 		return 0, nil
 	}
 }

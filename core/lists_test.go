@@ -281,16 +281,123 @@ func TestPopFrontNilPointer(t *testing.T) {
 }
 
 func TestPopFrontLenCap(t *testing.T) {
+	q, capacity := setupDequeWithItems()
+	oldHead := q.Head()
+	head, err := q.PopFront()
+	newHead := q.Head()
+	if q.Len() != capacity-1 {
+		t.Errorf("Expected the length to be %d but found %d", capacity-1, q.Len())
+	}
+	if err != nil {
+		t.Errorf("There cannot be any errors on a non-nil deque: %v", q)
+	}
+	if head != oldHead {
+		t.Errorf("Expected %d to be popped but found %d", oldHead, head)
+	}
+	if newHead != 2 {
+		t.Errorf("Expected the new head to point to 2 but found %d", newHead)
+	}
 }
 
 func TestPopFrontOverflow(t *testing.T) {
+	q, _ := setupDequeWithItems()
+	q.PushFront(9) // At this point the head should be this
+	oldHead := q.Head()
+	head, _ := q.PopFront()
+	newHead := q.Head()
+	tail := q.Tail()
+	if head != oldHead {
+		t.Errorf("Expected %d to be popped off but found %d", oldHead, head)
+	}
+	if newHead != 1 {
+		t.Errorf("Expected the new head to be %d but found %d", 1, newHead)
+	}
+	if tail != 7 {
+		t.Errorf("Expected the tail to be same at %d but found %d", 7, tail)
+	}
 }
 
 func TestPopBackSingleItem(t *testing.T) {
+	q := new(Deque)
+	val := 10
+	q.PushBack(val)
+	tail, _ := q.PopBack()
+	if q.Len() != 0 {
+		t.Errorf("Expected length to be 0 but found %d", q.Len())
+	}
+	if tail != val {
+		t.Errorf("Expected %d to be popped out but found %d", val, tail)
+	}
 }
 
 func TestPopFrontSingleItem(t *testing.T) {
+	q := new(Deque)
+	val := 10
+	q.PushBack(val)
+	head, _ := q.PopFront()
+	if q.Len() != 0 {
+		t.Errorf("Expected length to be 0 but found %d", q.Len())
+	}
+	if head != val {
+		t.Errorf("Expected %d to be popped out but found %d", val, head)
+	}
 }
 
 func TestPopBackPopFrontTillEmptyThenAddOnceLenCapHeadTail(t *testing.T) {
+	q, capacity := setupDequeWithItems()
+	for i := 0; i < capacity/2; i++ {
+		q.PopBack()
+	}
+	for i := 0; i < capacity/2; i++ {
+		q.PopFront()
+	}
+
+	q.PushBack(1)
+	q.PushFront(2)
+	q.PushBack(3)
+
+	head := q.Head()
+	tail := q.Tail()
+
+	if q.Len() != 3 {
+		t.Errorf("Expected length to be 3, but found %d", q.Len())
+	}
+
+	if head != 2 {
+		t.Errorf("Expected head to be %d but found %d", 2, head)
+	}
+
+	if tail != 3 {
+		t.Errorf("Expected tail to be %d but found %d", 3, tail)
+	}
+
+	if !q.Contains(1) {
+		t.Error("Should contain 1")
+	}
+
+	if q.Contains(8) {
+		t.Error("Should not contain 8")
+	}
+}
+
+func TestPopFrontPushFront(t *testing.T) {
+	q, _ := setupDequeWithItems()
+	q.PopFront()
+	val := 25
+	q.PushFront(val)
+	head := q.Head()
+	if head != val {
+		t.Errorf("The new head item should be %d but found %d", val, head)
+	}
+}
+
+func TestPopBackPushBack(t *testing.T) {
+	q, _ := setupDequeWithItems()
+	q.PopBack()
+	val := 25
+	q.PushBack(val)
+	tail := q.Tail()
+	if tail != val {
+		t.Errorf("The new head item should be %d but found %d", val, tail)
+	}
 }
