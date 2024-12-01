@@ -2,6 +2,16 @@ package core
 
 import "testing"
 
+func setupDequeWithItems() (*Deque, int) {
+	capacity := 8
+	q := WithCapacity(capacity)
+	vals := []int{1, 2, 3, 4, 5, 6, 7, 8}
+	for _, item := range vals {
+		q.PushBack(item)
+	}
+	return q, capacity
+}
+
 func TestCapNil(t *testing.T) {
 	var q *Deque = nil
 	if q.Cap() != 0 {
@@ -207,4 +217,80 @@ func TestPushFrontPushBackSimult(t *testing.T) {
 	if tail != val {
 		t.Errorf("Expected the tail item to  be %d, but found %d", val, tail)
 	}
+}
+
+func TestPopBackLenCap(t *testing.T) {
+	q, capacity := setupDequeWithItems()
+	oldTail, _ := q.PopBack()
+	if q.Cap() != capacity {
+		t.Errorf("Expected the capacity to remain %d but found %d", capacity, q.Cap())
+	}
+	if q.Len() != capacity-1 {
+		t.Errorf("Expected the length to be %d but found %d", capacity-1, q.Len())
+	}
+	tail := q.Tail()
+	if tail != 7 {
+		t.Errorf("Expected the tail item to be one less %d, but found %d", 7, tail)
+	}
+	head := q.Head()
+	if head != 1 {
+		t.Errorf("Expected the head to remain unchanged at %d but found %d", 1, head)
+	}
+	if oldTail != 8 {
+		t.Errorf("Expected PopBack to return the last tail item %d, but found %d", 8, oldTail)
+	}
+}
+
+func TestPopBackNilPointer(t *testing.T) {
+	var q *Deque = nil
+	_, err := q.PopBack()
+	if err == nil {
+		t.Errorf("Expected error when PopBack called on nil Deque, instead found %v", err)
+	}
+}
+
+func TestOverFlowPopBack(t *testing.T) {
+	q, capacity := setupDequeWithItems()
+	q.PushBack(9)
+	oldTail, err := q.PopBack()
+	head := q.Head()
+	tail := q.Tail()
+	if q.Len() != capacity-1 {
+		t.Errorf("Expected length %d but found %d", 7, q.Len())
+	}
+	if oldTail != 9 {
+		t.Errorf("Expected old tail item to be %d but found %d", 9, oldTail)
+	}
+	if err != nil {
+		t.Errorf("Expected no errors but found %v", err)
+	}
+	if tail != 8 {
+		t.Errorf("Expected new tail item to be %d, but found %d", 8, tail)
+	}
+	if head != 2 {
+		t.Errorf("Expected the head to be %d but found %d", 2, head)
+	}
+}
+
+func TestPopFrontNilPointer(t *testing.T) {
+	var q *Deque = nil
+	_, err := q.PopFront()
+	if err == nil {
+		t.Errorf("Expected error when popping the front of a nil deque but found %v", err)
+	}
+}
+
+func TestPopFrontLenCap(t *testing.T) {
+}
+
+func TestPopFrontOverflow(t *testing.T) {
+}
+
+func TestPopBackSingleItem(t *testing.T) {
+}
+
+func TestPopFrontSingleItem(t *testing.T) {
+}
+
+func TestPopBackPopFrontTillEmptyThenAddOnceLenCapHeadTail(t *testing.T) {
 }

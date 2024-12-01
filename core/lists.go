@@ -1,6 +1,7 @@
 package core
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"slices"
@@ -68,11 +69,11 @@ func (q *Deque) next() int {
 }
 
 // Calculates the previous index pointer
-func (q *Deque) prev() int {
+func (q *Deque) prev(reference int) int {
 	index := 0
 
 	if q.count != 0 {
-		index = (q.head - 1) & (len(q.buf) - 1)
+		index = (reference - 1) & (len(q.buf) - 1)
 	}
 
 	logger.Debug().Int("index", index).Msg("Returning previous index")
@@ -116,7 +117,7 @@ func (q *Deque) incrementPointersLeft(newIndex int) {
 		if q.head > q.tail {
 			q.tail = 0
 		} else {
-			q.tail = q.prev()
+			q.tail = q.prev(q.head)
 		}
 	}
 
@@ -186,6 +187,49 @@ func (q *Deque) PushBack(data int) {
 		Msg("Post-push buffer state")
 }
 
+func (q *Deque) PopBack() (int, error) {
+	if q == nil {
+		err := errors.New("Illegal pop back operation on nil deque.")
+		logger.Error().Msg(err.Error())
+		return 0, err
+	}
+
+	logger.Debug().Msg("Removing the last element. Tail shrinks.")
+
+	if q.count != 0 {
+		tail := q.Tail()
+		if q.count == 1 {
+			logger.Debug().Msg("case: item count is 1")
+			q.tail = 0
+		} else if q.tail < q.head {
+			logger.Debug().Msg("case: item count is greater than 1 and tail is behind head")
+			q.tail = q.prev(q.tail)
+		} else {
+			logger.Debug().Msg("case: item count is greater than 1 and tail is ahead of head")
+			q.tail = q.prev(q.tail)
+		}
+		q.count--
+
+		logger.Debug().
+			Int("count", q.count).
+			Int("head", q.head).
+			Int("tail", q.tail).
+			Str("buffer", fmt.Sprintf("%v", q.buf)).
+			Msg("Item count is greater than 0. Post pop state.")
+
+		return tail, nil
+	} else {
+		logger.Debug().
+			Int("count", q.count).
+			Int("head", q.head).
+			Int("tail", q.tail).
+			Str("buffer", fmt.Sprintf("%v", q.buf)).
+			Msg("Item count is 0. Post pop state.")
+
+		return 0, nil
+	}
+}
+
 func (q *Deque) PushFront(data int) {
 	logger.Debug().Int("data", data).Msg("Pushing an item to the front")
 
@@ -195,7 +239,7 @@ func (q *Deque) PushFront(data int) {
 	}
 
 	logger.Debug().Str("buffer", fmt.Sprintf("%v", q.buf)).Msg("Pre-push buffer state")
-	index := q.prev()
+	index := q.prev(q.head)
 	q.buf[index] = data
 	q.updateCount()
 	q.incrementPointersLeft(index)
@@ -206,6 +250,24 @@ func (q *Deque) PushFront(data int) {
 		Int("tail", q.tail).
 		Int("count", q.count).
 		Msg("Post-push buffer state")
+}
+
+func (q *Deque) PopFront() (int, error) {
+	if q == nil {
+		err := errors.New("Illegal PopFront on nil deque.")
+		logger.Error().Msg(err.Error())
+		return 0, err
+	}
+
+	logger.Debug().Msg("Removing the item at the current head. Head shrinks.")
+
+	if q.count != 0 {
+		head := q.Head()
+		q.head = q.prev(q.head)
+		return head, nil
+	} else {
+		return 0, nil
+	}
 }
 
 func (q *Deque) Head() int {
